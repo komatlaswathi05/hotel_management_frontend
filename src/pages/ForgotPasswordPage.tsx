@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import AuthLayout from '../components/AuthLayout'
+import FormAlert from '../components/FormAlert'
 import TextField from '../components/TextField'
+import { getErrorMessage } from '../services/api'
+import { authService } from '../services/authService'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -9,14 +12,25 @@ function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [serverError, setServerError] = useState('')
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!email.trim()) return setError('Email is required')
     if (!EMAIL_PATTERN.test(email)) return setError('Enter a valid email address')
     setError('')
-    // TODO: call the forgot-password API
-    setSubmitted(true)
+
+    setSubmitting(true)
+    setServerError('')
+    try {
+      await authService.forgotPassword(email.trim())
+      setSubmitted(true)
+    } catch (error) {
+      setServerError(getErrorMessage(error))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const backToLogin = (
@@ -59,6 +73,7 @@ function ForgotPasswordPage() {
       footer={backToLogin}
     >
       <form noValidate onSubmit={handleSubmit} className="space-y-5">
+        <FormAlert message={serverError} />
         <TextField
           label="Email"
           name="email"
@@ -71,9 +86,10 @@ function ForgotPasswordPage() {
         />
         <button
           type="submit"
-          className="w-full cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          disabled={submitting}
+          className="w-full cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Send reset link
+          {submitting ? 'Sending…' : 'Send reset link'}
         </button>
       </form>
     </AuthLayout>

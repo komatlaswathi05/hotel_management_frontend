@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import AuthLayout from '../components/AuthLayout'
+import FormAlert from '../components/FormAlert'
 import TextField from '../components/TextField'
+import { getErrorMessage } from '../services/api'
+import { authService } from '../services/authService'
 
 type LoginErrors = Partial<Record<'email' | 'password', string>>
 
@@ -13,6 +16,8 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [errors, setErrors] = useState<LoginErrors>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [serverError, setServerError] = useState('')
 
   function validate(): LoginErrors {
     const next: LoginErrors = {}
@@ -22,13 +27,22 @@ function LoginPage() {
     return next
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextErrors = validate()
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
-    // TODO: call the login API
-    navigate('/')
+
+    setSubmitting(true)
+    setServerError('')
+    try {
+      await authService.login(email, password)
+      navigate('/')
+    } catch (error) {
+      setServerError(getErrorMessage(error))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -45,6 +59,7 @@ function LoginPage() {
       }
     >
       <form noValidate onSubmit={handleSubmit} className="space-y-5">
+        <FormAlert message={serverError} />
         <TextField
           label="Email"
           name="email"
@@ -83,9 +98,10 @@ function LoginPage() {
 
         <button
           type="submit"
-          className="w-full cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          disabled={submitting}
+          className="w-full cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Sign in
+          {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
     </AuthLayout>

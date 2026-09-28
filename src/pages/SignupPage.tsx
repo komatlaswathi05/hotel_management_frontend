@@ -1,7 +1,10 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import AuthLayout from '../components/AuthLayout'
+import FormAlert from '../components/FormAlert'
 import TextField from '../components/TextField'
+import { getErrorMessage } from '../services/api'
+import { authService } from '../services/authService'
 
 type SignupForm = {
   fullName: string
@@ -29,6 +32,8 @@ function SignupPage() {
   const [form, setForm] = useState<SignupForm>(initialForm)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [errors, setErrors] = useState<SignupErrors>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [serverError, setServerError] = useState('')
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target
@@ -48,13 +53,27 @@ function SignupPage() {
     return next
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextErrors = validate()
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
-    // TODO: call the signup API
-    navigate('/login')
+
+    setSubmitting(true)
+    setServerError('')
+    try {
+      await authService.signup({
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || undefined,
+        password: form.password,
+      })
+      navigate('/login')
+    } catch (error) {
+      setServerError(getErrorMessage(error))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -71,6 +90,7 @@ function SignupPage() {
       }
     >
       <form noValidate onSubmit={handleSubmit} className="space-y-5">
+        <FormAlert message={serverError} />
         <TextField
           label="Full name"
           name="fullName"
@@ -147,9 +167,10 @@ function SignupPage() {
 
         <button
           type="submit"
-          className="w-full cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          disabled={submitting}
+          className="w-full cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Create account
+          {submitting ? 'Creating account…' : 'Create account'}
         </button>
       </form>
     </AuthLayout>
